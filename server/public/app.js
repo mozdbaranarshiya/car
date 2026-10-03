@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const forms = ['login-form','otp-form','setup-form','setup-confirm-form'];
 let challenge = '', setupChallenge = '', people = [], selectedId = null, searchPhone = '';
-let map = null, markers = new Map(), poll = null, refreshing = false, firstBounds = true;
+let map = null, markers = new Map(), poll = null, refreshing = false, firstBounds = true, dashboardEpoch = 0;
 const apiBase = window.TRACKER_CONFIG?.apiBase || '';
 let adminToken = ''; // In memory only; reloading a Pages tab requires signing in.
 const faNumber = new Intl.NumberFormat('fa-IR');
@@ -81,15 +81,15 @@ function initMap(){
     map.on('error',()=>{$('map-message').textContent='دریافت بخشی از نقشه انجام نشد؛ اتصال اینترنت را بررسی کنید.';$('map-message').hidden=false;});
   }catch(e){$('map-message').textContent='نمایش نقشه انجام نشد؛ اتصال اینترنت و به‌روز بودن مرورگر را بررسی کنید.';$('map-message').hidden=false;console.error('Map initialization failed:',e.message);}
 }
-async function refresh(){if(refreshing)return;refreshing=true;$('refresh').disabled=true;try{
-  const result=await api('/api/admin/people'+(searchPhone?'?phone='+encodeURIComponent(searchPhone):''));people=result.people;
+async function refresh(){if(refreshing)return;const epoch=dashboardEpoch;refreshing=true;$('refresh').disabled=true;try{
+  const result=await api('/api/admin/people'+(searchPhone?'?phone='+encodeURIComponent(searchPhone):''));if(epoch!==dashboardEpoch)return;people=result.people;
   if(selectedId&&!people.some(p=>p.id===selectedId))selectedId=null;renderList();renderDetail();renderMarkers();
   $('connection').textContent='به‌روز شد: '+new Date().toLocaleTimeString('fa-IR');
-}catch(e){if(e.status===401){closeDashboard();showForm('login-form');message('نشست شما پایان یافته است. دوباره وارد شوید.');}else $('connection').textContent='ارتباط قطع است؛ تلاش دوباره انجام می‌شود.';}finally{refreshing=false;$('refresh').disabled=false;}}
-async function openDashboard(){ $('auth').hidden=true;$('dashboard').hidden=false;initMap();if(map)map.resize();await refresh();if(!poll)poll=setInterval(refresh,5000);}
-function closeDashboard(){if(poll)clearInterval(poll);poll=null;adminToken='';$('dashboard').hidden=true;$('auth').hidden=false;people=[];selectedId=null;markers.forEach(m=>m.remove());markers.clear();renderList();renderDetail();}
+}catch(e){if(epoch!==dashboardEpoch)return;if(e.status===401){closeDashboard();showForm('login-form');message('نشست شما پایان یافته است. دوباره وارد شوید.');}else $('connection').textContent='ارتباط قطع است؛ تلاش دوباره انجام می‌شود.';}finally{refreshing=false;$('refresh').disabled=false;}}
+async function openDashboard(){dashboardEpoch++;$('auth').hidden=true;$('dashboard').hidden=false;initMap();if(map)map.resize();await refresh();if(!poll&&!$('dashboard').hidden)poll=setInterval(refresh,5000);}
+function closeDashboard(){dashboardEpoch++;if(poll)clearInterval(poll);poll=null;adminToken='';$('dashboard').hidden=true;$('auth').hidden=false;people=[];selectedId=null;firstBounds=true;searchPhone='';$('search-phone').value='';markers.forEach(m=>m.remove());markers.clear();renderList();renderDetail();}
 $('refresh').onclick=refresh;
-$('logout').onclick=async()=>{try{await api('/api/admin/logout',{});closeDashboard();showForm('login-form');message('از سامانه خارج شدید.',true);}catch(e){$('connection').textContent=e.message;}};
+$('logout').onclick=async()=>{try{await api('/api/admin/logout',{});closeDashboard();showForm('login-form');message('از سامانه خارج شدید.',true);}catch(e){if(apiBase){closeDashboard();showForm('login-form');message('از این صفحه خارج شدید.',true);}else $('connection').textContent=e.message;}};
 $('search-form').addEventListener('submit',async e=>{e.preventDefault();searchPhone=digits($('search-phone').value.trim());selectedId=null;firstBounds=true;await refresh();});
 $('show-all').onclick=async()=>{searchPhone='';$('search-phone').value='';selectedId=null;firstBounds=true;await refresh();fitPeople();};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('dashboard').hidden)refresh();});

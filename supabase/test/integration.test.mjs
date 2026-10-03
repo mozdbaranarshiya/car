@@ -10,9 +10,9 @@ test('Supabase API and PostgreSQL enforce privacy, consent, and two-factor sessi
     setupToken: 'private-test-setup-token-1234567890123456', encryptionKey: 'ab'.repeat(32) };
   const handler = await makeHandler(options);
   let adminToken = '', secret, alice, bob, challenge;
-  const call = async (path, data, { token, origin = options.publicOrigin, handle = handler } = {}) => {
+  const call = async (path, data, { token, origin = options.publicOrigin, handle = handler, forwarded } = {}) => {
     const headers = { ...(origin ? { Origin: origin } : {}), ...(data ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: 'Bearer ' + token } : {}) };
+      ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(forwarded ? { 'X-Forwarded-For': forwarded } : {}) };
     const response = await handle(new Request('https://qa.supabase.co/functions/v1/tracker' + path,
       { method: data ? 'POST' : 'GET', headers, body: data ? JSON.stringify(data) : undefined }));
     return { status: response.status, data: await response.json(), response };
@@ -117,7 +117,7 @@ test('Supabase API and PostgreSQL enforce privacy, consent, and two-factor sessi
     await t.test('persistent login limits survive new Edge Function instances and reject forged IP headers', async () => {
       await pool.query("delete from radyabi_private.limits where category='login'");
       const cold = await makeHandler(options);
-      for (let i = 0; i < 8; i++) assert.equal((await call('/api/admin/login', { username: 'manager', password: 'wrong' }, { handle: i % 2 ? cold : handler })).status, 401);
+      for (let i = 0; i < 8; i++) assert.equal((await call('/api/admin/login', { username: 'manager', password: 'wrong' }, { handle: i % 2 ? cold : handler, forwarded: '192.0.2.' + i })).status, 401);
       assert.equal((await call('/api/admin/login', { username: 'manager', password: 'wrong' }, { handle: cold })).status, 429);
     });
   } finally { await reset(); await pool.end(); }

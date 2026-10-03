@@ -177,7 +177,7 @@ export async function makeHandler({ store, publicOrigin, setupToken, encryptionK
         if (result === 'revoked') bad('ارسال موقعیت متوقف شده است.', 403);
         return json(200, { ok: true, ...(result === 'ignored' ? { ignored: true } : {}) });
       }
-      bad('مسیر یافت نشد.', 404);
+      throw new HttpError(404, 'مسیر یافت نشد.');
     } catch (error) {
       if (!(error instanceof HttpError)) console.error('Tracker request failed:', error.message);
       return json(error.status || 500, { error: error.status ? error.message : 'خطای سامانه؛ دوباره تلاش کنید.' });
