@@ -12,3 +12,4 @@ android/**/build/
 *.sqlite*
 server.key
 android/signing.properties
+qa-artifacts/
