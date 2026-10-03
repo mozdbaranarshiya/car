@@ -46,6 +46,11 @@ jobs:
       - name: Replace repository contents
         shell: bash
         run: |
+          # GITHUB_TOKEN cannot create new workflow files. Preserve the two
+          # already-authorized workflow paths; ChatGPT updates them afterward
+          # through the user's GitHub connection.
+          rm -rf .github/workflows
+          git checkout HEAD -- .github/workflows
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
