@@ -11,30 +11,35 @@ permissions:
 jobs:
   replace-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Reconstruct project
         shell: bash
         run: |
           cat .bootstrap/payload.part1 .bootstrap/payload.part2 | base64 -d > /tmp/project.tar.gz
-          echo "415edb886cdbd5a5a446f02f7a38813f2d5a1dbfc1fb14634fcee56e4a6a0e64  /tmp/project.tar.gz" | sha256sum -c -
+          echo "92a456189cc2fb86676de66c0e0f28923ee46391a2938cf0a63889f981a553e6  /tmp/project.tar.gz" | sha256sum -c -
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           tar -xzf /tmp/project.tar.gz -C .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - name: Build APK
         working-directory: android
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: consent-location-share-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
       - name: Replace repository contents
         shell: bash
         run: |
@@ -43,7 +48,7 @@ jobs:
           git add -A
           git commit -m "Replace repository with consent-based location sharing app"
           git push origin main
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: site
   deploy-pages:
