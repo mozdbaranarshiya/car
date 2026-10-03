@@ -10,6 +10,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const allowedAssets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/config.js', ['config.js', 'text/javascript; charset=utf-8']],
   ['/app.css', ['app.css', 'text/css; charset=utf-8']],
   ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
   ['/vendor/maplibre-gl.js', ['vendor/maplibre-gl.js', 'text/javascript; charset=utf-8']],

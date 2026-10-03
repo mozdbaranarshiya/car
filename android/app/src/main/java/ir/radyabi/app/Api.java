@@ -2,7 +2,6 @@ package ir.radyabi.app;
 
 import android.content.Context;
 import org.json.JSONObject;
-import java.net.URI;
 import java.net.URL;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,13 +17,7 @@ final class Api {
         Failure(int status, String text) { super(text); this.status = status; }
     }
     static String validateServer(String input) throws Exception {
-        String value = input.trim();
-        while (value.endsWith("/")) value = value.substring(0, value.length()-1);
-        URI uri = new URI(value);
-        if (!"https".equals(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null ||
-            uri.getRawQuery() != null || uri.getRawFragment() != null || !uri.getPath().isEmpty())
-            throw new Exception("آدرس اصلی HTTPS سامانه را وارد کنید؛ مانند https://tracking.example.com");
-        return value;
+        return ServerAddress.validate(input);
     }
     static JSONObject request(String server, String path, JSONObject data, String token) throws Exception {
         HttpsURLConnection connection = (HttpsURLConnection) new URL(server + path).openConnection();

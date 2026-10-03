@@ -2,10 +2,11 @@
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
   <title>ردیابی افراد | پنل مدیر</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/app.css">
-  <script src="/vendor/maplibre-gl.js" defer></script><script src="/app.js" defer></script>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./vendor/maplibre-gl.css"><link rel="stylesheet" href="./app.css">
+  <script src="./config.js" defer></script><script src="./vendor/maplibre-gl.js" defer></script><script src="./app.js" defer></script>
 </head>
 <body>
   <main id="auth" class="auth-shell">
@@ -24,7 +25,7 @@
         <button type="submit" class="primary">ورود به نقشه</button><button type="button" id="back-login" class="quiet">بازگشت</button>
       </form>
       <form id="setup-form" hidden>
-        <h2>راه‌اندازی حساب مدیر</h2><p class="muted">کلید راه‌اندازی در خروجی اولیهٔ سرور نمایش داده می‌شود.</p>
+        <h2>راه‌اندازی حساب مدیر</h2><p class="muted">کلید خصوصی راه‌اندازی را وارد کنید.</p>
         <label for="setup-token">کلید راه‌اندازی</label><input id="setup-token" type="password" dir="ltr" autocomplete="off" required>
         <label for="new-username">نام کاربری جدید</label><input id="new-username" autocomplete="username" dir="ltr" required minlength="3" maxlength="64">
         <label for="new-password">رمز عبور جدید</label><input id="new-password" type="password" autocomplete="new-password" dir="ltr" required minlength="12" maxlength="256">

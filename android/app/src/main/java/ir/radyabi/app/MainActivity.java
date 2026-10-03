@@ -122,8 +122,8 @@ public final class MainActivity extends Activity implements LocationListener {
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] results){super.onRequestPermissionsResult(requestCode,permissions,results);if(requestCode==101||requestCode==102){if(state.alwaysPermission()){if(state.registered())showHome();else showRegistration();}else showPermissions();}}
     private void showRegistration(){
         page="registration";LinearLayout content=screen(true);heading(content,"نام و شمارهٔ خود را وارد کنید");
-        EditText server=field(content,"آدرس سامانه","https://tracking.example.com",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);server.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);server.setTextDirection(View.TEXT_DIRECTION_LTR);server.setText(BuildConfig.DEFAULT_SERVER_URL);
-        content.addView(text("این آدرس را مدیر پس از راه‌اندازی سرور اعلام می‌کند.",14,MUTED));gap(content,16);
+        EditText server=field(content,"آدرس سرویس موقعیت","https://PROJECT.supabase.co/functions/v1/tracker",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);server.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);server.setTextDirection(View.TEXT_DIRECTION_LTR);server.setText(BuildConfig.DEFAULT_SERVER_URL);
+        content.addView(text("آدرس سرویس Supabase را که مدیر اعلام کرده وارد کنید.",14,MUTED));gap(content,16);
         EditText name=field(content,"نام و نام خانوادگی","نام شما",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         EditText phone=field(content,"شماره موبایل","09123456789",InputType.TYPE_CLASS_PHONE);phone.setTextDirection(View.TEXT_DIRECTION_LTR);
         content.addView(text("برای شمارهٔ موبایل پیامک یا کد تأیید ارسال نمی‌شود.",14,MUTED));

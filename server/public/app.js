@@ -2,12 +2,17 @@
 const $ = id => document.getElementById(id);
 const forms = ['login-form','otp-form','setup-form','setup-confirm-form'];
 let challenge = '', setupChallenge = '', people = [], selectedId = null, searchPhone = '';
-let map = null, markers = new Map(), poll = null, refreshing = false, firstBounds = true;
+let map = null, markers = new Map(), poll = null, refreshing = false, firstBounds = true, dashboardEpoch = 0;
+const apiBase = window.TRACKER_CONFIG?.apiBase || '';
+let adminToken = ''; // In memory only; reloading a Pages tab requires signing in.
 const faNumber = new Intl.NumberFormat('fa-IR');
 const digits = v => String(v).replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)));
 async function api(path, data) {
-  const response = await fetch(path, { method: data ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
-    headers: data ? { 'Content-Type':'application/json' } : {}, body: data ? JSON.stringify(data) : undefined });
+  if (window.TRACKER_CONFIG?.unconfigured) throw new Error('راه‌اندازی سامانه هنوز کامل نشده است.');
+  const headers = data ? { 'Content-Type':'application/json' } : {};
+  if (apiBase && adminToken) headers.Authorization = 'Bearer ' + adminToken;
+  const response = await fetch(apiBase + path, { method: data ? 'POST' : 'GET', credentials: apiBase ? 'omit' : 'same-origin',
+    cache: 'no-store', redirect: 'error', headers, body: data ? JSON.stringify(data) : undefined });
   const payload = await response.json();
   if (!response.ok) { const error = new Error(payload.error || 'ارتباط با سامانه برقرار نشد.'); error.status = response.status; throw error; }
   return payload;
@@ -23,7 +28,8 @@ $('login-form').addEventListener('submit',e=>{ e.preventDefault(); formAction(e.
   $('password').value=''; challenge=result.challenge; showForm('otp-form'); $('otp').value=''; $('otp').focus();
 }); });
 $('otp-form').addEventListener('submit',e=>{ e.preventDefault(); formAction(e.currentTarget, async()=>{
-  await api('/api/admin/verify',{challenge,code:digits($('otp').value)}); challenge=''; $('otp').value=''; await openDashboard();
+  const result=await api('/api/admin/verify',{challenge,code:digits($('otp').value)});
+  adminToken=result.token || '';challenge=''; $('otp').value=''; await openDashboard();
 }); });
 $('back-login').onclick=()=>{challenge='';$('otp').value='';showForm('login-form');message('');};
 $('setup-form').addEventListener('submit',e=>{e.preventDefault();formAction(e.currentTarget,async()=>{
@@ -68,22 +74,22 @@ function fitPeople(){if(!map)return;const located=people.filter(validLocation);i
 function initMap(){
   if(map)return;try{
     if(!window.maplibregl)throw new Error('ابزار نمایش نقشه بارگذاری نشده است. صفحه را دوباره بارگذاری کنید.');
-    maplibregl.setRTLTextPlugin('/vendor/rtl-text-plugin.js',true);
+    maplibregl.setRTLTextPlugin(new URL('./vendor/rtl-text-plugin.js',document.baseURI).href,true);
     map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[53.688,32.4279],zoom:4.5,attributionControl:true});
     map.addControl(new maplibregl.NavigationControl(),'top-left');
     map.on('load',()=>{$('map-message').hidden=true;renderMarkers();});
     map.on('error',()=>{$('map-message').textContent='دریافت بخشی از نقشه انجام نشد؛ اتصال اینترنت را بررسی کنید.';$('map-message').hidden=false;});
   }catch(e){$('map-message').textContent='نمایش نقشه انجام نشد؛ اتصال اینترنت و به‌روز بودن مرورگر را بررسی کنید.';$('map-message').hidden=false;console.error('Map initialization failed:',e.message);}
 }
-async function refresh(){if(refreshing)return;refreshing=true;$('refresh').disabled=true;try{
-  const result=await api('/api/admin/people'+(searchPhone?'?phone='+encodeURIComponent(searchPhone):''));people=result.people;
+async function refresh(){if(refreshing)return;const epoch=dashboardEpoch;refreshing=true;$('refresh').disabled=true;try{
+  const result=await api('/api/admin/people'+(searchPhone?'?phone='+encodeURIComponent(searchPhone):''));if(epoch!==dashboardEpoch)return;people=result.people;
   if(selectedId&&!people.some(p=>p.id===selectedId))selectedId=null;renderList();renderDetail();renderMarkers();
   $('connection').textContent='به‌روز شد: '+new Date().toLocaleTimeString('fa-IR');
-}catch(e){if(e.status===401){closeDashboard();showForm('login-form');message('نشست شما پایان یافته است. دوباره وارد شوید.');}else $('connection').textContent='ارتباط قطع است؛ تلاش دوباره انجام می‌شود.';}finally{refreshing=false;$('refresh').disabled=false;}}
-async function openDashboard(){ $('auth').hidden=true;$('dashboard').hidden=false;initMap();if(map)map.resize();await refresh();if(!poll)poll=setInterval(refresh,5000);}
-function closeDashboard(){if(poll)clearInterval(poll);poll=null;$('dashboard').hidden=true;$('auth').hidden=false;people=[];selectedId=null;markers.forEach(m=>m.remove());markers.clear();renderList();renderDetail();}
+}catch(e){if(epoch!==dashboardEpoch)return;if(e.status===401){closeDashboard();showForm('login-form');message('نشست شما پایان یافته است. دوباره وارد شوید.');}else $('connection').textContent='ارتباط قطع است؛ تلاش دوباره انجام می‌شود.';}finally{refreshing=false;$('refresh').disabled=false;}}
+async function openDashboard(){dashboardEpoch++;$('auth').hidden=true;$('dashboard').hidden=false;initMap();if(map)map.resize();await refresh();if(!poll&&!$('dashboard').hidden)poll=setInterval(refresh,5000);}
+function closeDashboard(){dashboardEpoch++;if(poll)clearInterval(poll);poll=null;adminToken='';$('dashboard').hidden=true;$('auth').hidden=false;people=[];selectedId=null;firstBounds=true;searchPhone='';$('search-phone').value='';markers.forEach(m=>m.remove());markers.clear();renderList();renderDetail();}
 $('refresh').onclick=refresh;
-$('logout').onclick=async()=>{try{await api('/api/admin/logout',{});closeDashboard();showForm('login-form');message('از سامانه خارج شدید.',true);}catch(e){$('connection').textContent=e.message;}};
+$('logout').onclick=async()=>{try{await api('/api/admin/logout',{});closeDashboard();showForm('login-form');message('از سامانه خارج شدید.',true);}catch(e){if(apiBase){closeDashboard();showForm('login-form');message('از این صفحه خارج شدید.',true);}else $('connection').textContent=e.message;}};
 $('search-form').addEventListener('submit',async e=>{e.preventDefault();searchPhone=digits($('search-phone').value.trim());selectedId=null;firstBounds=true;await refresh();});
 $('show-all').onclick=async()=>{searchPhone='';$('search-phone').value='';selectedId=null;firstBounds=true;await refresh();fitPeople();};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('dashboard').hidden)refresh();});

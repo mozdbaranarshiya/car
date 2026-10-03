@@ -14,11 +14,61 @@
 - نقشهٔ همهٔ افراد، جست‌وجو با شماره موبایل، نمایش زمان نمونه، دقت و باتری. پنل هر ۵ ثانیه به‌روز می‌شود و موقعیت قدیمی مشخص است.
 - ذخیرهٔ فقط آخرین موقعیت؛ تاریخچهٔ حرکت ذخیره نمی‌شود.
 
-## راه‌اندازی سامانه روی سرور
+## راه‌اندازی با GitHub Pages و Supabase
+
+پنل مدیر روی GitHub Pages منتشر می‌شود. دریافت موقعیت، بررسی رمز و کد Ente و نگهداری آخرین موقعیت در Supabase انجام می‌شود؛ سرور لینوکسی جداگانه لازم نیست. اتصال به پروژهٔ Supabase و تنظیم انتشار Pages باید یک‌بار انجام شود. فایل‌های مخزن به‌تنهایی سرویس فعال ایجاد نمی‌کنند.
+
+### ۱. آماده‌سازی Supabase
+
+یک پروژهٔ Supabase مخصوص این سامانه انتخاب کنید. با Supabase CLI از ریشهٔ مخزن اجرا کنید:
+
+```sh
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push
+node server/scripts/prepare-supabase.mjs
+supabase secrets set --env-file supabase/functions/.env
+supabase functions deploy tracker --no-verify-jwt
+```
+
+`YOUR_PROJECT_REF` شناسهٔ پروژه در آدرس داشبورد Supabase است. اسکریپت آماده‌سازی یک کلید راه‌اندازی خصوصی و یک کلید تصادفی رمزگذاری می‌سازد و در فایل نادیده‌گرفته‌شدهٔ `supabase/functions/.env` با دسترسی ۶۰۰ می‌نویسد؛ مقدار کلیدها در خروجی چاپ نمی‌شود. اجرای دوباره فایل موجود را حفظ می‌کند. از این فایل خصوصی پشتیبان بگیرید: تغییر یا گم‌شدن `TRACKER_ENCRYPTION_KEY` دسترسی به کلید Ente ذخیره‌شده را از بین می‌برد.
+
+`TRACKER_WEB_ORIGIN` فقط مبدأ وب است، بدون مسیر `/car/` یا اسلش انتهایی؛ پیش‌فرض `https://mozdbaranarshiya.github.io` است. در صورت استفاده از دامنهٔ اختصاصی Pages، قبل از آماده‌سازی این متغیر را به مبدأ جدید تغییر دهید. اگر فایل `.env` از قبل وجود دارد، همان مقدار را در فایل خصوصی و Secrets پروژه به‌روز کنید.
+
+گزینهٔ `verify_jwt = false` لازم است چون احراز هویت این برنامه با توکن مستقل هر گوشی و نشست دومرحله‌ای مدیر انجام می‌شود. این گزینه داده‌ها را عمومی نمی‌کند: همهٔ اطلاعات در schema خصوصی `radyabi_private` با RLS فعال قرار دارند؛ هیچ دسترسی به نقش‌های `anon` و `authenticated` داده نشده است. RPC فقط توسط کلید سمت سرور Supabase قابل اجراست. کلید `service_role` یا `sb_secret_...` در پنل، APK و مخزن قرار نمی‌گیرد؛ Supabase آن را فقط در محیط Edge Function فراهم می‌کند.
+
+آدرس سرویس پس از استقرار:
+
+```text
+https://YOUR_PROJECT_REF.supabase.co/functions/v1/tracker
+```
+
+### ۲. انتشار پنل روی GitHub Pages
+
+1. در مخزن `car`، مسیر **Settings → Secrets and variables → Actions → Variables** را باز کنید و `TRACKER_API_BASE` را برابر آدرس کامل سرویس بالا قرار دهید. این آدرس عمومی است و کلید خصوصی نیست.
+2. در **Settings → Pages → Build and deployment → Source** گزینهٔ **GitHub Actions** را انتخاب کنید.
+3. از **Actions → Publish manager to GitHub Pages → Run workflow** انتشار را اجرا کنید. پس از آن، تغییرهای موفق `main` نیز بعد از آزمون‌های CI منتشر می‌شوند.
+4. آدرس معمول پنل این مخزن `https://mozdbaranarshiya.github.io/car/` است؛ URL واقعی انتشار در خروجی job و تنظیمات Pages نمایش داده می‌شود.
+
+همهٔ مسیرهای فایل و افزونهٔ فارسی نقشه با مسیر پروژهٔ Pages سازگارند. API فقط مبدأ تعریف‌شده در `TRACKER_WEB_ORIGIN` را برای مرورگر می‌پذیرد. نشست مدیر در حافظهٔ همین صفحه نگهداری می‌شود؛ بازخوانی صفحه نیاز به ورود دوباره دارد و هیچ رمز، کلید Ente یا توکن نشست در localStorage یا sessionStorage ذخیره نمی‌شود. قبل از تنظیم آدرس API، workflow انتشار عمداً اجرا نمی‌شود.
+
+### ۳. تعریف مدیر و اتصال گوشی‌ها
+
+پنل منتشرشده را باز کنید. مقدار `TRACKER_SETUP_TOKEN` از فایل خصوصی خود را در فرم راه‌اندازی وارد کنید و نام کاربری و رمز عبور دست‌کم ۱۲ نویسه‌ای انتخاب کنید. کلید نمایش‌داده‌شده را در Ente Auth با TOTP، SHA1، شش رقم، دورهٔ ۳۰ ثانیه و نام Radyabi اضافه و کد را تأیید کنید. راه‌اندازی عمومی پس از این مرحله بسته می‌شود. برای ورود بعدی منتظر کد بعدی Ente باشید؛ کد استفاده‌شده دوباره پذیرفته نمی‌شود، حتی در درخواست‌های هم‌زمان به چند نمونهٔ Edge Function.
+
+در APK نسخهٔ ۱٫۱، **آدرس سرویس Supabase** را وارد کنید؛ آدرس GitHub Pages آدرس پنل مدیر است. اگر هنگام ساخت `-PserverUrl=https://YOUR_PROJECT_REF.supabase.co/functions/v1/tracker` تنظیم شود، فیلد آدرس از قبل تکمیل می‌شود. ارسال داده نیاز به پیامک یا حساب Supabase برای افراد ندارد؛ فقط نام، شماره، مجوز معتبر مکان و رضایت صریح لازم است.
+
+### انتشار Supabase از GitHub Actions
+
+روش CLI بالا کافی است. برای استقرارهای بعدی بدون سیستم محلی، workflow **Deploy Supabase backend** نیز موجود است. `SUPABASE_PROJECT_REF` و در صورت نیاز `TRACKER_WEB_ORIGIN` را در Variables مخزن و `SUPABASE_ACCESS_TOKEN`، `SUPABASE_DB_PASSWORD`، `TRACKER_SETUP_TOKEN` و `TRACKER_ENCRYPTION_KEY` را در **Secrets** مخزن تنظیم کنید. کلیدهای tracker باید همان مقادیر ثابت فایل خصوصی اولیه باشند. سپس workflow را روی `main` اجرا کنید. هیچ secret در فایل‌های منتشرشدهٔ Pages کپی نمی‌شود.
+
+Supabase تعداد فراخوانی‌های Edge Function و ظرفیت پایگاه داده را بر اساس طرح حساب محاسبه می‌کند. برای تعداد زیاد گوشی‌ها، میزان مصرف پروژه را بررسی کنید؛ ارسال پس‌زمینه دائمی در طرح رایگان نامحدود نیست.
+
+## روش جایگزین: سرور مستقل
 
 این مخزن سرویس میزبانی نیست. برای کار بین گوشی‌های مختلف باید سرور روی یک آدرس HTTPS قابل دسترس اجرا شود. هیچ دامنه یا سرور فعالی داخل مخزن اولیه وجود نداشت؛ APK عمومی یک فیلد «آدرس سامانه» دارد. هیچ اطلاعات ورود، کلید TOTP یا موقعیت واقعی در کد قرار داده نشده است.
 
-روش پیشنهادی برای یک سرور لینوکسی با Docker Compose:
+برای میزبانی مستقل به جای Supabase، یک سرور لینوکسی با Docker Compose:
 
 1. دامنه را به IP سرور وصل کنید و پورت‌های ۸۰ و ۴۴۳ را باز بگذارید.
 2. `.env.example` را به `.env` کپی و `DOMAIN` را تنظیم کنید. فایل `.env` را وارد Git نکنید.
@@ -48,6 +98,18 @@ node server/src.mjs
 
 پنل محلی روی `http://127.0.0.1:3000` است. APK عمداً HTTP بدون رمزگذاری را نمی‌پذیرد. برای اتصال گوشی از HTTPS استفاده کنید. راه‌اندازی Docker در حالت production مقدار `PUBLIC_ORIGIN` را تنظیم می‌کند.
 
+آزمون‌های Supabase در CI با PostgreSQL 17 مستقل اجرا می‌شوند و شامل محدودیت دسترسی، باقی‌ماندن وضعیت در شروع مجدد Edge Function، جلوگیری از استفادهٔ هم‌زمان از کد Ente، ترتیب زمان GPS و لغو رضایت هنگام ارسال هم‌زمان هستند. آزمون مرورگر، پنل واقعی را هم روی مسیر `/car/` با API روی یک مبدأ جدا بررسی می‌کند. برای اجرای این آزمون‌ها محلی، یک پایگاه آزمایشی خالی روی localhost آماده کنید:
+
+```sh
+export TRACKER_QA_DATABASE_URL=postgresql://postgres:TEST_PASSWORD@127.0.0.1:5432/tracker_qa
+psql "$TRACKER_QA_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/test/bootstrap.sql
+psql "$TRACKER_QA_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610030001_tracker.sql
+npm ci --prefix supabase/test
+npm test --prefix supabase/test
+```
+
+آزمون‌ها جدول‌های پایگاه آزمایشی را خالی می‌کنند؛ این نشانی را برای پروژهٔ واقعی تنظیم نکنید. آنها اتصال به میزبان غیرمحلی را رد می‌کنند.
+
 ## ساخت اندروید
 
 JDK 17، Gradle 8.9، Android SDK 35 و Build Tools 35 لازم است:
@@ -69,7 +131,7 @@ gradle :app:assembleDebug :app:lintDebug
 - هر نصب مستقل است. دو نصب با یک شماره، دو دستگاه جدا هستند؛ داشتن شمارهٔ فرد دیگر اجازهٔ دسترسی به موقعیت او نمی‌دهد.
 - ثبت‌نام بدون پیامک طبق درخواست باز است؛ شماره هویت تأییدشده محسوب نمی‌شود. مدیر باید نام و شمارهٔ افراد شناخته‌شده را بررسی کند.
 - به علت نگهداری فقط آخرین نمونه، پس از قطع اینترنت فقط آخرین موقعیت ذخیره‌شده ارسال می‌شود؛ نمونهٔ قدیمی‌تر موقعیت جدیدتر را جایگزین نمی‌کند.
-- سرور نمونه، محدودیت تعداد تلاش برای ورود و ثبت‌نام دارد. پشت پروکسی، IP اتصال ملاک است و هدر دلخواه کاربر به‌عنوان IP واقعی پذیرفته نمی‌شود.
+- نسخهٔ Supabase محدودیت تلاش را در پایگاه داده نگه می‌دارد؛ شروع مجدد Edge Function آن را پاک نمی‌کند. محدودیت ورود برای حساب واحد مدیر و محدودیت ثبت‌نام برای کل سامانه است؛ محدودیت ارسال موقعیت برای هر دستگاه جداست. نسخهٔ سرور مستقل از IP اتصال استفاده می‌کند. هیچ‌کدام IP ادعاشده در هدر دلخواه کاربر را ملاک قرار نمی‌دهند.
 - نقشه از OpenFreeMap و داده‌های OpenStreetMap است. کتابخانه‌های مرورگر به صورت محلی با checksum ثابت دریافت می‌شوند؛ دانلود نقشه همچنان به اینترنت نیاز دارد.
 
 ## منابع فنی
@@ -79,5 +141,9 @@ gradle :app:assembleDebug :app:lintDebug
 - https://maplibre.org/maplibre-native/android/examples/getting-started/
 - https://openfreemap.org/quick_start/
 - https://www.rfc-editor.org/rfc/rfc6238
+- https://supabase.com/docs/guides/functions/function-configuration
+- https://supabase.com/docs/guides/functions/secrets
+- https://supabase.com/docs/guides/database/postgres/row-level-security
+- https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
 
 هیچ APK، keystore، رمز مدیر، کلید TOTP یا دادهٔ مکان را وارد این مخزن عمومی نکنید.

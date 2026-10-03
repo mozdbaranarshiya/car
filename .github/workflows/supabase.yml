@@ -1,0 +1,46 @@
+name: Deploy Supabase backend
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: supabase-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      TRACKER_WEB_ORIGIN: ${{ vars.TRACKER_WEB_ORIGIN || 'https://mozdbaranarshiya.github.io' }}
+      TRACKER_SETUP_TOKEN: ${{ secrets.TRACKER_SETUP_TOKEN }}
+      TRACKER_ENCRYPTION_KEY: ${{ secrets.TRACKER_ENCRYPTION_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Validate deployment configuration
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_DB_PASSWORD"
+          test -n "$SUPABASE_PROJECT_REF"
+          node --input-type=module -e "if (!process.env.TRACKER_SETUP_TOKEN || process.env.TRACKER_SETUP_TOKEN.length < 32 || !/^[a-fA-F0-9]{64}$/.test(process.env.TRACKER_ENCRYPTION_KEY || '')) throw new Error('Missing private tracker secrets');"
+      - name: Deploy database schema
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push --linked --yes
+      - name: Configure private function secrets
+        run: |
+          node --input-type=module -e "import {writeFileSync} from 'node:fs'; writeFileSync('supabase/functions/.env', ['TRACKER_WEB_ORIGIN','TRACKER_SETUP_TOKEN','TRACKER_ENCRYPTION_KEY'].map(k => k + '=' + process.env[k]).join('\n') + '\n', {mode: 0o600});"
+          supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" --env-file supabase/functions/.env
+      - name: Deploy authenticated application API
+        run: supabase functions deploy tracker --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+      - name: Check public health endpoint
+        run: curl --fail --silent --show-error "https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/tracker/api/health"
