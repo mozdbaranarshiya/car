@@ -17,7 +17,7 @@ jobs:
       - name: Reconstruct project
         shell: bash
         run: |
-          cat .bootstrap/payload.part1 .bootstrap/payload.part2 | base64 -d > /tmp/project.tar.gz
+          cat .bootstrap/chunk.00 .bootstrap/chunk.01 .bootstrap/chunk.02 .bootstrap/chunk.03 .bootstrap/chunk.04 .bootstrap/chunk.05 .bootstrap/chunk.06 .bootstrap/chunk.07 .bootstrap/chunk.08 .bootstrap/chunk.09 .bootstrap/chunk.10 | base64 -d > /tmp/project.tar.gz
           echo "92a456189cc2fb86676de66c0e0f28923ee46391a2938cf0a63889f981a553e6  /tmp/project.tar.gz" | sha256sum -c -
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           tar -xzf /tmp/project.tar.gz -C .
