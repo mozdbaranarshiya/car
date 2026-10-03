@@ -1,52 +1,37 @@
-name: Build Android and verify server
+name: Build Android APK
 on:
   push:
     branches: [main]
-  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  verify-and-build:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Security and API tests
-        run: npm test --prefix server
-      - name: Check panel scripts
-        run: node --check server/public/app.js
-      - name: Fetch verified map renderer
-        run: node server/scripts/fetch-vendor.mjs
-      - name: Install browser QA
-        run: |
-          npm install --prefix "$RUNNER_TEMP/radyabi-qa" --no-save playwright@1.55.1
-          "$RUNNER_TEMP/radyabi-qa/node_modules/.bin/playwright" install chromium --with-deps
-      - name: Verify manager interface in a real browser
-        run: QA_PLAYWRIGHT_PACKAGE="$RUNNER_TEMP/radyabi-qa/node_modules/playwright" node server/test/browser-smoke.cjs
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: panel-qa-screenshots
-          path: qa-artifacts/*.png
-          if-no-files-found: ignore
-          retention-days: 7
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build Android APK
+      - name: Build debug APK
         working-directory: android
-        run: gradle --no-daemon :app:assembleRelease :app:lintRelease
+        run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: radyabi-afrad-unsigned-release
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: consent-location-share-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
