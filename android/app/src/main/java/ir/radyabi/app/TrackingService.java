@@ -34,7 +34,7 @@ public final class TrackingService extends Service implements LocationListener {
             if (!state.sharing() || !state.alwaysPermission()) {
                 stopSharing(TrackingService.this); stopSelf(); return;
             }
-            if (!locations.isLocationEnabled()) updateStatus("مکان‌یابی گوشی خاموش است؛ GPS را روشن کنید.");
+            if (!state.locationEnabled()) updateStatus("مکان‌یابی گوشی خاموش است؛ GPS را روشن کنید.");
             else uploadLatest();
             handler.postDelayed(this, 30000);
         }
@@ -112,7 +112,7 @@ public final class TrackingService extends Service implements LocationListener {
         Api.IO.execute(() -> { try { Api.flushRevocation(app); } catch (Exception ignored) {} });
     }
     @Override public void onProviderEnabled(String provider) { if(state.sharing()) updateStatus("در انتظار موقعیت تازه…"); }
-    @Override public void onProviderDisabled(String provider) { if(state.sharing()&&!locations.isLocationEnabled()) updateStatus("مکان‌یابی گوشی خاموش است."); }
+    @Override public void onProviderDisabled(String provider) { if(state.sharing()&&!state.locationEnabled()) updateStatus("مکان‌یابی گوشی خاموش است."); }
     @Override public void onStatusChanged(String provider,int status,Bundle extras) {}
     @Override public void onDestroy() { handler.removeCallbacksAndMessages(null); if(locations!=null)locations.removeUpdates(this); stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }

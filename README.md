@@ -57,7 +57,7 @@ cd android
 gradle :app:assembleDebug :app:lintDebug
 ```
 
-خروجی آزمایشی: `android/app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions آن را همراه آزمون‌های API می‌سازد. کلید آزمایشی برای انتشار نهایی استفاده نشود.
+خروجی آزمایشی: `android/app/build/outputs/apk/debug/app-debug.apk`. کلید آزمایشی برای انتشار نهایی استفاده نشود. GitHub Actions همراه آزمون‌های API، نسخهٔ release بدون امضا و Android lint را می‌سازد؛ آن خروجی پیش از نصب باید با کلید خصوصی امضا شود.
 
 برای خروجی نهایی، keystore خصوصی خود را با متغیرهای `TRACKER_KEYSTORE`، `TRACKER_STORE_PASSWORD`، `TRACKER_KEY_ALIAS` و `TRACKER_KEY_PASSWORD` معرفی و `:app:assembleRelease` را اجرا کنید. کلید امضای APK تحویل‌شده در مخزن عمومی ذخیره نمی‌شود. برای به‌روزرسانی همان نصب باید همان کلید امضا و versionCode بالاتر استفاده شوند.
 

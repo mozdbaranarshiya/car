@@ -175,7 +175,7 @@ public final class MainActivity extends Activity implements LocationListener {
             String time=DateFormat.getTimeInstance(DateFormat.MEDIUM,new Locale("fa")).format(new Date(point.optLong("capturedAt")));
             fixStatus.setText("زمان موقعیت: "+time+" · دقت: "+Math.round(point.optDouble("accuracy"))+" متر");
             if(map!=null){LatLng position=new LatLng(point.optDouble("latitude"),point.optDouble("longitude"));if(marker==null)marker=map.addMarker(new MarkerOptions().position(position).title("موقعیت من"));else marker.setPosition(position);if(!centered){centered=true;map.moveCamera(CameraUpdateFactory.newLatLngZoom(position,15));}}
-        }else fixStatus.setText(locations.isLocationEnabled()?"در انتظار موقعیت گوشی…":"مکان‌یابی گوشی خاموش است؛ آن را روشن کنید.");
+        }else fixStatus.setText(state.locationEnabled()?"در انتظار موقعیت گوشی…":"مکان‌یابی گوشی خاموش است؛ آن را روشن کنید.");
     }
     private void confirmResume(){
         if(!state.alwaysPermission()){showPermissions();return;}

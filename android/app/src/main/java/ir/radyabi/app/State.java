@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.location.LocationManager;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
@@ -29,6 +30,11 @@ final class State {
     }
     boolean alwaysPermission() {
         return foregroundPermission() && (Build.VERSION.SDK_INT < 29 || context.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED);
+    }
+    boolean locationEnabled() {
+        LocationManager manager = context.getSystemService(LocationManager.class);
+        if (Build.VERSION.SDK_INT >= 28) return manager.isLocationEnabled();
+        return manager.isProviderEnabled(LocationManager.GPS_PROVIDER) || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
     }
     String server() { return prefs.getString("server", ""); }
     String name() { return prefs.getString("name", ""); }
