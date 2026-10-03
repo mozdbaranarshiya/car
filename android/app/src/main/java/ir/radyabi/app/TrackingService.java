@@ -62,7 +62,7 @@ public final class TrackingService extends Service implements LocationListener {
             if (!listening) {
                 listening = true;
                 for (String provider : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER}) {
-                    if (locations.getAllProviders().contains(provider)) locations.requestLocationUpdates(provider,15000,10,this,Looper.getMainLooper());
+                    if (locations.getAllProviders().contains(provider)) locations.requestLocationUpdates(provider,15000,0,this,Looper.getMainLooper());
                 }
                 handler.post(tick);
             }

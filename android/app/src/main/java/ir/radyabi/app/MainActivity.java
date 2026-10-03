@@ -191,7 +191,7 @@ public final class MainActivity extends Activity implements LocationListener {
     private void startTracking(){if(state.sharing()&&state.alwaysPermission()){try{startForegroundService(new Intent(this,TrackingService.class));}catch(RuntimeException e){state.status("برای شروع ارسال دوباره تلاش کنید.");}}}
     private void listenToOwnLocation(){
         if(!state.foregroundPermission())return;
-        try{for(String provider:new String[]{LocationManager.GPS_PROVIDER,LocationManager.NETWORK_PROVIDER})if(locations.getAllProviders().contains(provider))locations.requestLocationUpdates(provider,10000,5,this,Looper.getMainLooper());}catch(SecurityException ignored){}
+        try{for(String provider:new String[]{LocationManager.GPS_PROVIDER,LocationManager.NETWORK_PROVIDER})if(locations.getAllProviders().contains(provider))locations.requestLocationUpdates(provider,10000,0,this,Looper.getMainLooper());}catch(SecurityException ignored){}
     }
     @Override public void onLocationChanged(Location location){try{displayLocation=new JSONObject().put("latitude",location.getLatitude()).put("longitude",location.getLongitude()).put("accuracy",location.getAccuracy()).put("capturedAt",location.getTime());updateHome();}catch(Exception ignored){}}
     @Override public void onProviderEnabled(String provider){updateHome();}
