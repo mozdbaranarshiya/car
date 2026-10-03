@@ -72,6 +72,10 @@ const assert = require('node:assert/strict');
     assert.equal(await page.locator('#dashboard').isVisible(), false);
     assert.deepEqual(errors, []);
     console.log('Browser QA passed: setup, password + TOTP, live API data, safe names, phone search, mobile layout, logout.');
+  } catch (error) {
+    await page.screenshot({ path: 'qa-artifacts/failure.png', fullPage: true });
+    console.error('Panel map message:', await page.locator('#map-message').textContent());
+    throw error;
   } finally {
     await browser.close(); await new Promise(resolve => server.close(resolve)); rmSync(dataDir, { recursive: true, force: true });
   }

@@ -67,13 +67,13 @@ function renderMarkers(){if(!map)return;const current=new Set(people.filter(vali
 function fitPeople(){if(!map)return;const located=people.filter(validLocation);if(!located.length)return;const bounds=new maplibregl.LngLatBounds();located.forEach(p=>bounds.extend([p.longitude,p.latitude]));map.fitBounds(bounds,{padding:60,maxZoom:15,duration:700});}
 function initMap(){
   if(map)return;try{
-    if(!window.maplibregl||!maplibregl.supported())throw new Error('نمایش نقشه در این مرورگر پشتیبانی نمی‌شود. از مرورگر به‌روز استفاده کنید.');
+    if(!window.maplibregl)throw new Error('ابزار نمایش نقشه بارگذاری نشده است. صفحه را دوباره بارگذاری کنید.');
     maplibregl.setRTLTextPlugin('/vendor/rtl-text-plugin.js',true);
     map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[53.688,32.4279],zoom:4.5,attributionControl:true});
     map.addControl(new maplibregl.NavigationControl(),'top-left');
     map.on('load',()=>{$('map-message').hidden=true;renderMarkers();});
     map.on('error',()=>{$('map-message').textContent='دریافت بخشی از نقشه انجام نشد؛ اتصال اینترنت را بررسی کنید.';$('map-message').hidden=false;});
-  }catch(e){$('map-message').textContent=e.message;$('map-message').hidden=false;}
+  }catch(e){$('map-message').textContent='نمایش نقشه انجام نشد؛ اتصال اینترنت و به‌روز بودن مرورگر را بررسی کنید.';$('map-message').hidden=false;console.error('Map initialization failed:',e.message);}
 }
 async function refresh(){if(refreshing)return;refreshing=true;$('refresh').disabled=true;try{
   const result=await api('/api/admin/people'+(searchPhone?'?phone='+encodeURIComponent(searchPhone):''));people=result.people;
