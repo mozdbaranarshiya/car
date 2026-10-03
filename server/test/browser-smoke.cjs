@@ -7,17 +7,24 @@ const assert = require('node:assert/strict');
 (async () => {
   const { makeServer } = await import('../src.mjs');
   const { totp } = await import('../auth.mjs');
-  const dataDir = mkdtempSync(join(tmpdir(), 'tracker-browser-'));
-  const { server } = await makeServer({ dataDir, setupToken: 'browser-test-only' });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const origin = `http://127.0.0.1:${server.address().port}`;
+  let origin, apiOrigin, dispose, setupToken = 'browser-test-only';
+  if (process.env.QA_SUPABASE === 'true') {
+    const { makeSupabaseBrowserFixture } = await import('../../supabase/test/browser-support.mjs');
+    ({ origin, apiOrigin, dispose, setupToken } = await makeSupabaseBrowserFixture());
+  } else {
+    const dataDir = mkdtempSync(join(tmpdir(), 'tracker-browser-'));
+    const { server } = await makeServer({ dataDir, setupToken });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    origin = apiOrigin = `http://127.0.0.1:${server.address().port}`;
+    dispose = async () => { await new Promise(resolve => server.close(resolve)); rmSync(dataDir, { recursive: true, force: true }); };
+  }
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   mkdirSync('qa-artifacts', { recursive: true });
   async function post(path, payload, token) {
-    const response = await fetch(origin + path, { method: 'POST', headers: {
+    const response = await fetch(apiOrigin + path, { method: 'POST', headers: {
       'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {})
     }, body: JSON.stringify(payload) });
     assert.ok(response.ok, 'Device fixture request failed'); return response.json();
@@ -25,7 +32,7 @@ const assert = require('node:assert/strict');
   try {
     await page.goto(origin);
     await page.locator('#setup-form').waitFor({ state: 'visible' });
-    await page.fill('#setup-token', 'browser-test-only');
+    await page.fill('#setup-token', setupToken);
     await page.fill('#new-username', 'browseradmin');
     await page.fill('#new-password', 'browser-test-password');
     await page.locator('#setup-form button[type=submit]').click();
@@ -69,16 +76,20 @@ const assert = require('node:assert/strict');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Mobile panel must fit the viewport');
     await page.click('#show-all');
     await page.waitForFunction(() => document.querySelectorAll('.person').length === 3);
+    if (process.env.QA_SUPABASE === 'true') {
+      assert.deepEqual(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })),
+        { local: 0, session: 0 }, 'Manager credentials must not persist in browser storage');
+    }
     await page.click('#logout');
     await page.locator('#login-form').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#dashboard').isVisible(), false);
     assert.deepEqual(errors, []);
-    console.log('Browser QA passed: setup, password + TOTP, live API data, safe names, phone search, mobile layout, logout.');
+    console.log('Browser QA passed (' + (process.env.QA_SUPABASE === 'true' ? 'Pages subpath + separate Supabase API' : 'Node server') + '): setup, password + TOTP, live API data, safe names, phone search, mobile layout, logout.');
   } catch (error) {
     await page.screenshot({ path: 'qa-artifacts/failure.png', fullPage: true });
     console.error('Panel map message:', await page.locator('#map-message').textContent());
     throw error;
   } finally {
-    await browser.close(); await new Promise(resolve => server.close(resolve)); rmSync(dataDir, { recursive: true, force: true });
+    await browser.close(); await dispose();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

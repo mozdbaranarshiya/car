@@ -10,6 +10,22 @@ jobs:
   verify-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: tracker_qa
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: tracker-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TRACKER_QA_DATABASE_URL: postgresql://postgres:tracker-ci-only@127.0.0.1:5432/tracker_qa
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +33,20 @@ jobs:
           node-version: '24'
       - name: Security and API tests
         run: npm test --prefix server
+      - name: Prepare isolated Supabase database
+        run: |
+          psql "$TRACKER_QA_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/test/bootstrap.sql
+          psql "$TRACKER_QA_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610030001_tracker.sql
+          npm ci --prefix supabase/test --ignore-scripts
+      - name: Supabase authorization and concurrency tests
+        run: npm test --prefix supabase/test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Verify Edge Function runtime compatibility
+        run: |
+          deno check supabase/functions/tracker/index.ts
+          deno eval "import { makeHandler } from './supabase/functions/tracker/handler.mjs'; const handler = await makeHandler({store: async () => true, publicOrigin: 'https://qa.github.io', setupToken: 'qa-only-token-12345678901234567890', encryptionKey: 'ab'.repeat(32)}); const result = await handler(new Request('https://qa.supabase.co/tracker/api/health')); if (result.status !== 200) throw new Error('Edge runtime failed');"
       - name: Check panel scripts
         run: node --check server/public/app.js
       - name: Fetch verified map renderer
@@ -27,6 +57,8 @@ jobs:
           "$RUNNER_TEMP/radyabi-qa/node_modules/.bin/playwright" install chromium --with-deps
       - name: Verify manager interface in a real browser
         run: QA_PLAYWRIGHT_PACKAGE="$RUNNER_TEMP/radyabi-qa/node_modules/playwright" node server/test/browser-smoke.cjs
+      - name: Verify Pages subpath and separate Supabase API in a real browser
+        run: QA_SUPABASE=true QA_PLAYWRIGHT_PACKAGE="$RUNNER_TEMP/radyabi-qa/node_modules/playwright" node server/test/browser-smoke.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -41,6 +73,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verify Android service address handling
+        run: |
+          javac -d "$RUNNER_TEMP/address-test" android/app/src/main/java/ir/radyabi/app/ServerAddress.java android/test/ServerAddressTest.java
+          java -ea -cp "$RUNNER_TEMP/address-test" ir.radyabi.app.ServerAddressTest
       - name: Build Android APK
         working-directory: android
         run: gradle --no-daemon :app:assembleRelease :app:lintRelease

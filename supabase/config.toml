@@ -1,0 +1,7 @@
+project_id = "radyabi-afrad"
+
+# Devices and managers use app-specific bearer tokens, verified by tracker.
+# The database RPC is accessible only to the function's server-side key.
+[functions.tracker]
+verify_jwt = false
+entrypoint = "./functions/tracker/index.ts"
