@@ -1,33 +1,22 @@
-plugins { id 'com.android.application' }
+plugins {
+    id 'com.android.application'
+}
+
 android {
-    namespace 'ir.radyabi.app'
+    namespace 'com.consentshare.app'
     compileSdk 35
+
     defaultConfig {
-        applicationId 'ir.radyabi.app'
+        applicationId 'com.consentshare.app'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0.0'
-        def url = providers.gradleProperty('serverUrl').getOrElse('')
-        buildConfigField 'String', 'DEFAULT_SERVER_URL', '"' + url.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        versionCode 2
+        versionName '1.1.0'
     }
-    buildFeatures { buildConfig true }
-    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    signingConfigs {
-        release {
-            if (System.getenv('TRACKER_KEYSTORE')) {
-                storeFile file(System.getenv('TRACKER_KEYSTORE'))
-                storePassword System.getenv('TRACKER_STORE_PASSWORD')
-                keyAlias System.getenv('TRACKER_KEY_ALIAS') ?: 'radyabi'
-                keyPassword System.getenv('TRACKER_KEY_PASSWORD')
-            }
-        }
-    }
+
     buildTypes {
         release {
             minifyEnabled false
-            if (System.getenv('TRACKER_KEYSTORE')) signingConfig signingConfigs.release
         }
     }
 }
-dependencies { implementation 'org.maplibre.gl:android-sdk:11.8.0' }

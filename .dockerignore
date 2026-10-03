@@ -1,8 +1,0 @@
-.git
-.env
-android
-node_modules
-server/data
-server/public/vendor
-server/test
-*.apk

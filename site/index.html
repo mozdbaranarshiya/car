@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>مدیریت اشتراک موقعیت</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <section id="authCard" class="card auth-card">
+      <div class="brand">سامانه اشتراک موقعیت</div>
+      <h1>ورود مدیر</h1>
+      <p class="muted">ورود با حساب مدیر Supabase و تأیید دومرحله‌ای TOTP. کد Ente Auth پشتیبانی می‌شود.</p>
+
+      <div id="passwordStep">
+        <label>نام کاربری</label>
+        <input id="username" autocomplete="username" placeholder="نام کاربری مدیر">
+        <label>رمز عبور</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="رمز عبور">
+        <button id="loginBtn">ادامه</button>
+      </div>
+
+      <div id="enrollStep" hidden>
+        <h2>فعال‌سازی Ente Auth</h2>
+        <p>QR زیر را در Ente Auth اسکن کنید. اگر اسکن ممکن نبود، کلید را دستی وارد کنید.</p>
+        <img id="totpQr" class="qr" alt="QR برای TOTP">
+        <code id="totpSecret"></code>
+        <label>کد ۶ رقمی</label>
+        <input id="enrollCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456">
+        <button id="enrollVerifyBtn">فعال‌سازی و ورود</button>
+      </div>
+
+      <div id="mfaStep" hidden>
+        <h2>کد Ente Auth</h2>
+        <label>کد ۶ رقمی</label>
+        <input id="mfaCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456">
+        <button id="mfaBtn">تأیید و ورود</button>
+      </div>
+      <div id="authMessage" class="message"></div>
+    </section>
+
+    <section id="dashboard" hidden>
+      <header class="topbar">
+        <div>
+          <h1>موقعیت‌های در حال اشتراک</h1>
+          <div id="updatedAt" class="muted"></div>
+        </div>
+        <div class="actions">
+          <input id="search" inputmode="tel" placeholder="جستجو با شماره موبایل">
+          <button id="refreshBtn" class="secondary">به‌روزرسانی</button>
+          <button id="logoutBtn" class="danger">خروج</button>
+        </div>
+      </header>
+      <div class="privacy-note">فقط نشست‌های فعال نمایش داده می‌شوند. سامانه تاریخچه مسیر را ذخیره نمی‌کند و نشست‌ها حداکثر ۸ ساعت اعتبار دارند.</div>
+      <div class="layout">
+        <div id="map"></div>
+        <aside>
+          <div id="count" class="count"></div>
+          <div id="people"></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
