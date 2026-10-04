@@ -84,8 +84,34 @@ public class MainActivity extends Activity implements LocationListener {
         phoneInput.setSingleLine(true);
         root.addView(phoneInput, new LinearLayout.LayoutParams(-1, -2));
 
+        TextView durationTitle = new TextView(this);
+        durationTitle.setText("مدت اشتراک");
+        durationTitle.setTextSize(17);
+        durationTitle.setPadding(0, dp(14), 0, dp(4));
+        root.addView(durationTitle, new LinearLayout.LayoutParams(-1, -2));
+
+        durationGroup = new RadioGroup(this);
+        durationGroup.setOrientation(RadioGroup.VERTICAL);
+        durationGroup.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        duration2 = new RadioButton(this);
+        duration2.setText("۲ ساعت");
+        duration5 = new RadioButton(this);
+        duration5.setText("۵ ساعت");
+        duration10 = new RadioButton(this);
+        duration10.setText("۱۰ ساعت");
+        durationManual = new RadioButton(this);
+        durationManual.setText("تا زمانی که خودم غیرفعال کنم");
+
+        durationGroup.addView(duration2);
+        durationGroup.addView(duration5);
+        durationGroup.addView(duration10);
+        durationGroup.addView(durationManual);
+        duration2.setChecked(true);
+        root.addView(durationGroup, new LinearLayout.LayoutParams(-1, -2));
+
         consentBox = new CheckBox(this);
-        consentBox.setText("با روشن‌کردن اشتراک، موافقم آخرین موقعیت من تا زمان توقف یا حداکثر ۸ ساعت برای مدیر سامانه قابل مشاهده باشد.");
+        consentBox.setText("موافقم آخرین موقعیت من فقط در مدت انتخاب‌شده برای مدیر سامانه قابل مشاهده باشد و هر زمان بخواهم بتوانم آن را متوقف کنم.");
         root.addView(consentBox, new LinearLayout.LayoutParams(-1, -2));
 
         startButton = new Button(this);
@@ -126,10 +152,24 @@ public class MainActivity extends Activity implements LocationListener {
 
     private void refreshState() {
         boolean active = prefs.getBoolean("active", false);
-        String expiry = prefs.getString("expires_at", "");
-        statusView.setText(active ? "اشتراک فعال است" + (expiry.isEmpty() ? "" : " — پایان خودکار: " + expiry) : "اشتراک‌گذاری خاموش است");
+        String mode = prefs.getString("duration_mode", "2h");
+        statusView.setText(active ? "اشتراک فعال است — " + durationLabel(mode) : "اشتراک‌گذاری خاموش است");
         startButton.setEnabled(!active && !starting);
         stopButton.setEnabled(active);
+    }
+
+    private String selectedDurationMode() {
+        if (duration5.isChecked()) return "5h";
+        if (duration10.isChecked()) return "10h";
+        if (durationManual.isChecked()) return "manual";
+        return "2h";
+    }
+
+    private String durationLabel(String mode) {
+        if ("5h".equals(mode)) return "۵ ساعت";
+        if ("10h".equals(mode)) return "۱۰ ساعت";
+        if ("manual".equals(mode)) return "تا زمانی که خودتان غیرفعال کنید";
+        return "۲ ساعت";
     }
 
     private boolean permissionsReady() {
@@ -161,15 +201,17 @@ public class MainActivity extends Activity implements LocationListener {
             return;
         }
 
+        String durationMode = selectedDurationMode();
+        String durationText = durationLabel(durationMode);
         new AlertDialog.Builder(this)
             .setTitle("تأیید اشتراک موقعیت")
-            .setMessage("با انتخاب «شروع»، آخرین موقعیت شما برای مدیر سامانه ارسال می‌شود. اعلان دائمی تا زمان پایان اشتراک نمایش داده خواهد شد. اشتراک حداکثر پس از ۸ ساعت خودکار منقضی می‌شود.")
+            .setMessage("آخرین موقعیت شما برای مدیر سامانه ارسال خواهد شد. مدت انتخاب‌شده: «" + durationText + "». اعلان دائمی تا زمان پایان اشتراک نمایش داده می‌شود. آیا تأیید می‌کنید؟")
             .setNegativeButton("لغو", null)
-            .setPositiveButton("شروع", (dialog, which) -> startRemoteSession(name, phone))
+            .setPositiveButton("تأیید و شروع", (dialog, which) -> startRemoteSession(name, phone, durationMode))
             .show();
     }
 
-    private void startRemoteSession(String name, String phone) {
+    private void startRemoteSession(String name, String phone, String durationMode) {
         if (starting) return;
         starting = true;
         refreshState();
@@ -181,16 +223,18 @@ public class MainActivity extends Activity implements LocationListener {
                 body.put("action", "start");
                 body.put("display_name", name);
                 body.put("phone", phone);
+                body.put("duration_mode", durationMode);
                 JSONObject result = ApiClient.post(body);
                 if (!result.optBoolean("ok")) throw new Exception(result.optString("error", "START_FAILED"));
 
                 String token = result.getString("device_token");
-                String expiresAt = result.optString("expires_at", "");
+                String expiresAt = result.isNull("expires_at") ? "" : result.optString("expires_at", "");
                 prefs.edit()
                     .putString("name", name)
                     .putString("phone", phone)
                     .putString("device_token", token)
                     .putString("expires_at", expiresAt)
+                    .putString("duration_mode", durationMode)
                     .putBoolean("active", true)
                     .apply();
 
@@ -262,10 +306,10 @@ public class MainActivity extends Activity implements LocationListener {
     private String mapHtml(double lat, double lon, boolean current) {
         String label = current ? "موقعیت فعلی شما" : "نقشه";
         return "<!doctype html><html dir='rtl'><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
-            "<link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css'>" +
+            "<link rel='stylesheet' href='https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css'>" +
             "<style>html,body,#map{height:100%;margin:0}body{font-family:sans-serif}</style></head><body><div id='map'></div>" +
-            "<script src='https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js'></script>" +
-            "<script>const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[" + lon + "," + lat + "],zoom:14});" +
+            "<script src='https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.js'></script>" +
+            "<script>if(maplibregl.setRTLTextPlugin){maplibregl.setRTLTextPlugin('https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js',true).catch(function(){});}const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[" + lon + "," + lat + "],zoom:14});" +
             "new maplibregl.Marker().setLngLat([" + lon + "," + lat + "]).setPopup(new maplibregl.Popup().setText('" + label + "')).addTo(map);</script></body></html>";
     }
 

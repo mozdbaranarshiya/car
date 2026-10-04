@@ -48,9 +48,15 @@ public class LocationShareService extends Service implements LocationListener {
             return START_NOT_STICKY;
         }
 
+        if (!prefs.getBoolean("active", false) || prefs.getString("device_token", "").length() < 20) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
+        stopped = false;
         showForegroundNotification();
         startLocationUpdates();
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     private void showForegroundNotification() {
@@ -65,7 +71,7 @@ public class LocationShareService extends Service implements LocationListener {
         Notification notification = builder
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("اشتراک موقعیت فعال است")
-            .setContentText("آخرین موقعیت شما برای مدیر ارسال می‌شود. برای پایان، «توقف اشتراک» را بزنید.")
+            .setContentText("مدت: " + durationLabel(prefs.getString("duration_mode", "2h")) + " — برای پایان، «توقف اشتراک» را بزنید.")
             .setContentIntent(open)
             .setOngoing(true)
             .addAction(new Notification.Action.Builder(android.R.drawable.ic_menu_close_clear_cancel, "توقف اشتراک", stop).build())
@@ -138,9 +144,18 @@ public class LocationShareService extends Service implements LocationListener {
         stopSelf();
     }
 
+    private String durationLabel(String mode) {
+        if ("5h".equals(mode)) return "۵ ساعت";
+        if ("10h".equals(mode)) return "۱۰ ساعت";
+        if ("manual".equals(mode)) return "تا زمان خاموش‌کردن";
+        return "۲ ساعت";
+    }
+
     @Override
     public void onDestroy() {
-        if (!stopped) stopSharing(true);
+        if (locationManager != null) {
+            try { locationManager.removeUpdates(this); } catch (Exception ignored) {}
+        }
         super.onDestroy();
     }
 

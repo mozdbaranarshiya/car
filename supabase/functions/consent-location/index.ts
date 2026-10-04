@@ -46,6 +46,14 @@ function validCoordinate(lat: number, lon: number) {
   return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 }
 
+function duration(mode: string) {
+  if (mode === "2h") return { mode, hours: 2 };
+  if (mode === "5h") return { mode, hours: 5 };
+  if (mode === "10h") return { mode, hours: 10 };
+  if (mode === "manual") return { mode, hours: null };
+  throw new Error("INVALID_DURATION");
+}
+
 async function requireManager(req: Request, url: string, publishableKey: string, admin: any) {
   const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!bearer) throw new Error("UNAUTHORIZED");
@@ -86,6 +94,7 @@ async function expireOld(admin: any) {
       accuracy_m: null,
     })
     .eq("sharing_active", true)
+    .not("expires_at", "is", null)
     .lt("expires_at", now);
 }
 
@@ -105,7 +114,12 @@ Deno.serve(async (req: Request) => {
     const action = String(body?.action || "");
 
     if (action === "health") {
-      return json({ ok: true, service: "consent-location", mode: "current-location-only", max_session_hours: 8 });
+      return json({
+        ok: true,
+        service: "consent-location",
+        mode: "current-location-only",
+        durations: ["2h", "5h", "10h", "manual"]
+      });
     }
 
     if (action === "start") {
@@ -113,6 +127,7 @@ Deno.serve(async (req: Request) => {
 
       const displayName = String(body.display_name || "").trim();
       const phone = String(body.phone || "").trim();
+      const selected = duration(String(body.duration_mode || ""));
 
       if (displayName.length < 2 || displayName.length > 120 || !validPhone(phone)) {
         throw new Error("INVALID_PROFILE");
@@ -122,14 +137,15 @@ Deno.serve(async (req: Request) => {
         .from("consent_location_sessions")
         .select("id", { count: "exact", head: true })
         .eq("phone", phone)
-        .eq("sharing_active", true)
-        .gt("expires_at", new Date().toISOString());
+        .eq("sharing_active", true);
 
       if ((count || 0) >= 3) throw new Error("TOO_MANY_ACTIVE_SESSIONS");
 
       const deviceToken = token();
       const deviceTokenHash = await sha256(deviceToken);
-      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+      const expiresAt = selected.hours === null
+        ? null
+        : new Date(Date.now() + selected.hours * 60 * 60 * 1000).toISOString();
 
       const { data, error } = await admin
         .from("consent_location_sessions")
@@ -140,12 +156,19 @@ Deno.serve(async (req: Request) => {
           sharing_active: true,
           consented_at: new Date().toISOString(),
           expires_at: expiresAt,
+          duration_mode: selected.mode,
         })
-        .select("id,expires_at")
+        .select("id,expires_at,duration_mode")
         .single();
 
       if (error) throw new Error("START_FAILED");
-      return json({ ok: true, session_id: data.id, device_token: deviceToken, expires_at: data.expires_at });
+      return json({
+        ok: true,
+        session_id: data.id,
+        device_token: deviceToken,
+        expires_at: data.expires_at,
+        duration_mode: data.duration_mode
+      });
     }
 
     if (action === "update") {
@@ -169,13 +192,27 @@ Deno.serve(async (req: Request) => {
         })
         .eq("device_token_hash", deviceTokenHash)
         .eq("sharing_active", true)
-        .gt("expires_at", now)
-        .select("id,expires_at")
+        .select("id,expires_at,duration_mode")
         .maybeSingle();
 
       if (error) throw new Error("UPDATE_FAILED");
       if (!data) throw new Error("SESSION_INACTIVE");
-      return json({ ok: true, expires_at: data.expires_at });
+
+      if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
+        await admin
+          .from("consent_location_sessions")
+          .update({
+            sharing_active: false,
+            stopped_at: now,
+            latitude: null,
+            longitude: null,
+            accuracy_m: null,
+          })
+          .eq("id", data.id);
+        throw new Error("SESSION_INACTIVE");
+      }
+
+      return json({ ok: true, expires_at: data.expires_at, duration_mode: data.duration_mode });
     }
 
     if (action === "stop") {
@@ -206,9 +243,8 @@ Deno.serve(async (req: Request) => {
       const queryText = String(body.query || "").trim().slice(0, 50);
       let query = admin
         .from("consent_location_sessions")
-        .select("id,display_name,phone,latitude,longitude,accuracy_m,last_seen_at,consented_at,expires_at")
+        .select("id,display_name,phone,latitude,longitude,accuracy_m,last_seen_at,consented_at,expires_at,duration_mode")
         .eq("sharing_active", true)
-        .gt("expires_at", new Date().toISOString())
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .order("last_seen_at", { ascending: false })
@@ -225,7 +261,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     const code = error instanceof Error ? error.message : "SERVER_ERROR";
     const known = new Set([
-      "SERVER_CONFIG","UNAUTHORIZED","MANAGER_ONLY","MFA_REQUIRED","INVALID_PROFILE",
+      "SERVER_CONFIG","UNAUTHORIZED","MANAGER_ONLY","MFA_REQUIRED","INVALID_PROFILE","INVALID_DURATION",
       "TOO_MANY_ACTIVE_SESSIONS","START_FAILED","INVALID_UPDATE","UPDATE_FAILED",
       "SESSION_INACTIVE","INVALID_TOKEN","STOP_FAILED","LIST_FAILED","UNKNOWN_ACTION"
     ]);
