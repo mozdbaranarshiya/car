@@ -1,9 +1,7 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.95.0';
-
 const SUPABASE_URL = 'https://efibfevyiepkwpnobaro.supabase.co';
 const PUBLISHABLE_KEY = 'sb_publishable_zbEGYX6DGhjFRQf6FWiIWQ_IdYj84nW';
 const API_URL = `${SUPABASE_URL}/functions/v1/consent-location`;
-const supabase = createClient(SUPABASE_URL, PUBLISHABLE_KEY);\nconst TRACKER_FACTOR_PREFIX = 'ردیابی افراد - Ente Auth';
+const sb = window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY);\nconst TRACKER_FACTOR_PREFIX = 'ردیابی افراد - Ente Auth';
 
 const $ = id => document.getElementById(id);
 const authMessage = $('authMessage');
@@ -24,7 +22,7 @@ function setStep(step) {
 }
 
 async function api(action, payload = {}) {
-  const { data: sessionData } = await supabase.auth.getSession();
+  const { data: sessionData } = await sb.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
   const response = await fetch(API_URL, {
     method: 'POST',
@@ -40,7 +38,7 @@ async function api(action, payload = {}) {
 }
 
 async function afterPasswordLogin() {
-  const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+  const { data: factors, error: factorsError } = await sb.auth.mfa.listFactors();
   if (factorsError) throw factorsError;
 
   // This panel owns its own TOTP factor. Other MFA factors on the same manager
@@ -50,7 +48,7 @@ async function afterPasswordLogin() {
     .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
 
   if (trackerFactors.length) {
-    const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const { data: aal, error: aalError } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aalError) throw aalError;
     if (aal.currentLevel === 'aal2') return openDashboard();
 
@@ -64,7 +62,7 @@ async function afterPasswordLogin() {
   // First login to this tracking panel: create a dedicated Ente Auth entry and
   // show its QR/secret before any six-digit code is requested.
   const friendlyName = `${TRACKER_FACTOR_PREFIX} ${Date.now()}`;
-  const { data: enrollment, error: enrollError } = await supabase.auth.mfa.enroll({
+  const { data: enrollment, error: enrollError } = await sb.auth.mfa.enroll({
     factorType: 'totp',
     friendlyName
   });
@@ -83,7 +81,7 @@ $('loginBtn').addEventListener('click', async () => {
   const password = $('password').value;
   if (!username || !password) return message('نام کاربری و رمز عبور را وارد کنید.');
   const email = username.includes('@') ? username : `${username}@school.local`;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) return message('نام کاربری یا رمز عبور نادرست است.');
   try { await afterPasswordLogin(); } catch (e) { message(e?.message || 'ورود کامل نشد.'); }
 });
@@ -91,9 +89,9 @@ $('loginBtn').addEventListener('click', async () => {
 async function verifyFactor(code) {
   if (!factorId) throw new Error('عامل TOTP پیدا نشد.');
   if (!/^\d{6}$/.test(code)) throw new Error('کد ۶ رقمی را وارد کنید.');
-  const { data: challenge, error: cError } = await supabase.auth.mfa.challenge({ factorId });
+  const { data: challenge, error: cError } = await sb.auth.mfa.challenge({ factorId });
   if (cError) throw cError;
-  const { error: vError } = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
+  const { error: vError } = await sb.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
   if (vError) throw vError;
   await openDashboard();
 }
@@ -210,11 +208,11 @@ function render(people) {
 $('refreshBtn').addEventListener('click', load);
 let searchDelay;
 $('search').addEventListener('input', () => { clearTimeout(searchDelay); searchDelay = setTimeout(load, 350); });
-$('logoutBtn').addEventListener('click', async () => { clearInterval(refreshTimer); await supabase.auth.signOut(); location.reload(); });
+$('logoutBtn').addEventListener('click', async () => { clearInterval(refreshTimer); await sb.auth.signOut(); location.reload(); });
 
 (async () => {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sb.auth.getSession();
   if (data?.session) {
-    try { await afterPasswordLogin(); } catch { await supabase.auth.signOut(); setStep('password'); }
+    try { await afterPasswordLogin(); } catch { await sb.auth.signOut(); setStep('password'); }
   }
 })();
