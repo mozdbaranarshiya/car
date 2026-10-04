@@ -1,7 +1,8 @@
 const SUPABASE_URL = 'https://efibfevyiepkwpnobaro.supabase.co';
 const PUBLISHABLE_KEY = 'sb_publishable_zbEGYX6DGhjFRQf6FWiIWQ_IdYj84nW';
 const API_URL = `${SUPABASE_URL}/functions/v1/consent-location`;
-const sb = window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY);\nconst TRACKER_FACTOR_PREFIX = 'ردیابی افراد - Ente Auth';
+const sb = window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+const TRACKER_FACTOR_PREFIX = 'ردیابی افراد - Ente Auth';
 
 const $ = id => document.getElementById(id);
 const authMessage = $('authMessage');
@@ -171,7 +172,9 @@ function render(people) {
     const seen = person.last_seen_at ? new Date(person.last_seen_at) : null;
     const ageSec = seen ? Math.max(0, (Date.now() - seen.getTime()) / 1000) : Infinity;
 
-    const popupNode = document.createElement('div');\n    popupNode.dir = 'rtl';\n    popupNode.style.textAlign = 'right';
+    const popupNode = document.createElement('div');
+    popupNode.dir = 'rtl';
+    popupNode.style.textAlign = 'right';
     const popupName = document.createElement('strong');
     popupName.textContent = person.display_name;
     const popupPhone = document.createElement('div');
