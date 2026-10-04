@@ -155,6 +155,11 @@ public class MainActivity extends Activity implements LocationListener {
     private void restoreProfile() {
         nameInput.setText(prefs.getString("name", ""));
         phoneInput.setText(prefs.getString("phone", ""));
+        String mode = prefs.getString("duration_mode", "2h");
+        if ("5h".equals(mode)) duration5.setChecked(true);
+        else if ("10h".equals(mode)) duration10.setChecked(true);
+        else if ("manual".equals(mode)) durationManual.setChecked(true);
+        else duration2.setChecked(true);
     }
 
     private void refreshState() {
@@ -278,6 +283,11 @@ public class MainActivity extends Activity implements LocationListener {
     protected void onResume() {
         super.onResume();
         refreshState();
+        if (prefs.getBoolean("active", false) && permissionsReady()) {
+            Intent service = new Intent(this, LocationShareService.class);
+            service.setAction(LocationShareService.ACTION_START);
+            startForegroundService(service);
+        }
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) startOwnLocationPreview();
     }
 
